@@ -20,9 +20,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
-  markPaymentAsPaidAction,
   revertPaymentPaidAction,
 } from "@/actions/payment.actions";
+import {
+  PaymentConfirmDialog,
+  type PaymentConfirmTarget,
+} from "@/features/installments/payment-confirm-dialog";
+import { getPaymentStatusLabel, getOwnershipLabel } from "@/lib/status-utils";
 import type { InstallmentWithDetails } from "@/types/installment";
 
 interface InstallmentDetailDialogProps {
@@ -41,6 +45,7 @@ export function InstallmentDetailDialog({
   onPaymentUpdated,
 }: InstallmentDetailDialogProps) {
   const [loadingPaymentId, setLoadingPaymentId] = React.useState<string | null>(null);
+  const [confirmTarget, setConfirmTarget] = React.useState<PaymentConfirmTarget | null>(null);
 
   if (!installment) return null;
 
@@ -54,22 +59,6 @@ export function InstallmentDetailDialog({
   const totalPaidAmount = paidPayments.reduce((acc, p) => acc + Number(p.amount), 0);
   const progressPercent = Math.round((paidCount / installment.totalInstallments) * 100);
 
-  const handleMarkPaid = async (paymentId: string) => {
-    setLoadingPaymentId(paymentId);
-    try {
-      const res = await markPaymentAsPaidAction(paymentId);
-      if (res.success) {
-        toast.success("บันทึกการชำระเงินงวดนี้เรียบร้อยแล้ว");
-        onPaymentUpdated?.();
-      } else {
-        toast.error(res.error || "ไม่สามารถบันทึกชำระเงินได้");
-      }
-    } catch {
-      toast.error("เกิดข้อผิดพลาดในการเชื่อมต่อ");
-    } finally {
-      setLoadingPaymentId(null);
-    }
-  };
 
   const handleRevertPaid = async (paymentId: string) => {
     setLoadingPaymentId(paymentId);
@@ -99,7 +88,7 @@ export function InstallmentDetailDialog({
                 variant={installment.ownershipType === "SHARED" ? "shared" : "personal"}
                 className="text-xs"
               >
-                {installment.ownershipType}
+                {getOwnershipLabel(installment.ownershipType)}
               </Badge>
             </DialogTitle>
           </div>
@@ -166,7 +155,7 @@ export function InstallmentDetailDialog({
                 <div className="flex items-center gap-2">
                   <Users2 className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                   <span className="font-semibold text-foreground">
-                    รายการผ่อนร่วม (Split: {installment.splitType}):
+                    รายการผ่อนร่วม (สัดส่วน: {installment.splitType === "EQUAL" ? "50/50" : "กำหนด % เอง"}):
                   </span>
                 </div>
                 <div className="flex items-center gap-3 text-muted-foreground">
@@ -193,7 +182,7 @@ export function InstallmentDetailDialog({
           <div className="space-y-2">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
               <Calendar className="h-4 w-4 text-primary" />
-              <span>ตารางงวดการผ่อนชำระ (Payment Schedule)</span>
+              <span>ตารางงวดการผ่อนชำระ</span>
             </h4>
 
             <div className="rounded-xl border border-border overflow-hidden">
@@ -275,7 +264,7 @@ export function InstallmentDetailDialog({
                               }
                               className="text-[10px] font-semibold"
                             >
-                              {p.status}
+                              {getPaymentStatusLabel(p.status)}
                             </Badge>
                           </td>
 
@@ -299,15 +288,20 @@ export function InstallmentDetailDialog({
                             ) : (
                               <Button
                                 size="sm"
-                                onClick={() => handleMarkPaid(p.id)}
+                                onClick={() => {
+                                  const userSplit = p.splits.find((s) => s.userId === currentUserId);
+                                  const payAmount = userSplit ? Number(userSplit.amount) : Number(p.amount);
+                                  setConfirmTarget({
+                                    paymentId: p.id,
+                                    installmentName: installment.name,
+                                    installmentNumber: p.installmentNumber,
+                                    totalInstallments: installment.totalInstallments,
+                                    amount: payAmount,
+                                  });
+                                }}
                                 disabled={isLoading}
                                 className="h-7 px-3 text-xs gap-1 shadow-2xs"
                               >
-                                {isLoading ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <CheckCircle2 className="h-3 w-3" />
-                                )}
                                 <span>จ่ายแล้ว</span>
                               </Button>
                             )}
@@ -322,6 +316,13 @@ export function InstallmentDetailDialog({
           </div>
         </div>
       </DialogContent>
+
+      <PaymentConfirmDialog
+        open={Boolean(confirmTarget)}
+        onOpenChange={(op) => !op && setConfirmTarget(null)}
+        target={confirmTarget}
+        onSuccess={onPaymentUpdated}
+      />
     </Dialog>
   );
 }

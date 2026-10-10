@@ -20,7 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { ProviderIcon } from "@/components/ui/provider-icon";
-import { markPaymentAsPaidAction, revertPaymentPaidAction } from "@/actions/payment.actions";
+import { revertPaymentPaidAction } from "@/actions/payment.actions";
+import { PaymentConfirmDialog } from "@/features/installments/payment-confirm-dialog";
+import { getPaymentStatusLabel, formatSplitDisplayThai } from "@/lib/status-utils";
 import type { CalendarEventItem } from "@/services/calendar.service";
 
 interface CalendarEventDialogProps {
@@ -37,28 +39,12 @@ export function CalendarEventDialog({
   onUpdated,
 }: CalendarEventDialogProps) {
   const [loading, setLoading] = React.useState(false);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
 
   if (!event) return null;
 
   const isPaid = event.status === "PAID" || event.paidAt !== null;
 
-  const handleMarkPaid = async () => {
-    setLoading(true);
-    try {
-      const res = await markPaymentAsPaidAction(event.id);
-      if (res.success) {
-        toast.success(`ชำระงวดที่ #${event.installmentNumber} เรียบร้อยแล้ว`);
-        onOpenChange(false);
-        onUpdated?.();
-      } else {
-        toast.error(res.error || "เกิดข้อผิดพลาดในการชำระเงิน");
-      }
-    } catch {
-      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleRevertPaid = async () => {
     setLoading(true);
@@ -111,13 +97,13 @@ export function CalendarEventDialog({
                 }
                 className="text-xs"
               >
-                {event.status}
+                {getPaymentStatusLabel(event.status)}
               </Badge>
               <Badge
                 variant={event.ownershipType === "SHARED" ? "shared" : "personal"}
                 className="text-xs"
               >
-                {event.splitDisplay}
+                {formatSplitDisplayThai(event.splitDisplay, event.ownershipType)}
               </Badge>
             </div>
 
@@ -130,7 +116,7 @@ export function CalendarEventDialog({
           {/* Amount Cards */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 rounded-xl bg-muted/50 border border-border">
-              <span className="text-[11px] text-muted-foreground block">ส่วนของคุณ (My Share)</span>
+              <span className="text-[11px] text-muted-foreground block">ส่วนของคุณ</span>
               <span className="text-lg font-bold text-foreground block mt-0.5">
                 {formatCurrency(event.myShare)}
               </span>
@@ -148,7 +134,7 @@ export function CalendarEventDialog({
             <div className="p-3 rounded-xl bg-violet-500/5 border border-violet-500/20 space-y-2">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
                 <Users2 className="h-3.5 w-3.5" />
-                <span>สัดส่วนการแบ่งจ่าย (Splits)</span>
+                <span>สัดส่วนการแบ่งจ่าย</span>
               </div>
               <div className="space-y-1 text-xs">
                 {event.splits.map((s) => (
@@ -209,16 +195,32 @@ export function CalendarEventDialog({
           ) : (
             <Button
               size="sm"
-              onClick={handleMarkPaid}
+              onClick={() => setConfirmOpen(true)}
               disabled={loading}
               className="gap-1.5 text-xs"
             >
-              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+              <CheckCircle2 className="h-3.5 w-3.5" />
               <span>บันทึกว่าจ่ายแล้ว</span>
             </Button>
           )}
         </div>
       </DialogContent>
+
+      <PaymentConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        target={{
+          paymentId: event.id,
+          installmentName: event.title,
+          installmentNumber: event.installmentNumber,
+          totalInstallments: event.totalInstallments,
+          amount: event.myShare,
+        }}
+        onSuccess={() => {
+          onOpenChange(false);
+          onUpdated?.();
+        }}
+      />
     </Dialog>
   );
 }

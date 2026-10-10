@@ -4,9 +4,10 @@ import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "./navigation-config";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { Plus, Bell, Calendar as CalendarIcon, ReceiptText } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, ReceiptText } from "lucide-react";
 import Link from "next/link";
 import { formatThaiMonthYear } from "@/lib/date-utils";
+import { NotificationPopover } from "./notification-popover";
 
 export function Header() {
   const pathname = usePathname();
@@ -51,16 +52,8 @@ export function Header() {
           </Button>
         </Link>
 
-        {/* Notifications Icon Button */}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="relative h-9 w-9 text-muted-foreground hover:text-foreground"
-          aria-label="การแจ้งเตือน"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-background" />
-        </Button>
+        {/* Real In-App Notification Bell & Popover */}
+        <NotificationPopover />
 
         {/* Mobile Theme Toggle */}
         <div className="md:hidden">

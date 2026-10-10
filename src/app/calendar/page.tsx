@@ -207,8 +207,8 @@ export default function CalendarPage() {
             className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
           >
             <option value="ALL">ประเภททั้งหมด</option>
-            <option value="PERSONAL">ผ่อนส่วนตัว (Personal)</option>
-            <option value="SHARED">ผ่อนร่วมกัน (Shared)</option>
+            <option value="PERSONAL">ส่วนตัว</option>
+            <option value="SHARED">ผ่อนร่วม</option>
           </select>
 
           {/* Status Filter */}
@@ -218,10 +218,10 @@ export default function CalendarPage() {
             className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary"
           >
             <option value="ALL">สถานะทั้งหมด</option>
-            <option value="UPCOMING">รอชำระ (Upcoming)</option>
-            <option value="DUE">ครบกำหนดวันนี้ (Due)</option>
-            <option value="OVERDUE">เกินกำหนด (Overdue)</option>
-            <option value="PAID">ชำระแล้ว (Paid)</option>
+            <option value="UPCOMING">ยังไม่ถึงกำหนด</option>
+            <option value="DUE">ถึงกำหนดชำระ</option>
+            <option value="OVERDUE">เกินกำหนด</option>
+            <option value="PAID">ชำระแล้ว</option>
           </select>
 
           {/* Provider Filter */}

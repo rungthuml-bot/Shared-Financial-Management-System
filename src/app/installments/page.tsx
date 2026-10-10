@@ -20,11 +20,14 @@ import {
   getInstallmentsAction,
   getFormDependenciesAction,
 } from "@/actions/installment.actions";
-import { markPaymentAsPaidAction } from "@/actions/payment.actions";
 import { CreateInstallmentDialog } from "@/features/installments/create-installment-dialog";
 import { EditInstallmentDialog } from "@/features/installments/edit-installment-dialog";
 import { DeleteInstallmentDialog } from "@/features/installments/delete-installment-dialog";
 import { InstallmentDetailDialog } from "@/features/installments/installment-detail-dialog";
+import {
+  PaymentConfirmDialog,
+  type PaymentConfirmTarget,
+} from "@/features/installments/payment-confirm-dialog";
 import type { InstallmentWithDetails } from "@/types/installment";
 
 export default function InstallmentsPage() {
@@ -41,6 +44,20 @@ export default function InstallmentsPage() {
   const [editItem, setEditItem] = React.useState<InstallmentWithDetails | null>(null);
   const [deleteItem, setDeleteItem] = React.useState<InstallmentWithDetails | null>(null);
   const [detailItem, setDetailItem] = React.useState<InstallmentWithDetails | null>(null);
+  const [confirmTarget, setConfirmTarget] = React.useState<PaymentConfirmTarget | null>(null);
+
+  // Check if opened via URL query parameter (e.g. /installments?new=true from Header)
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("new") === "true") {
+          setCreateOpen(true);
+        }
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Form dependencies (providers, categories, partners)
   const [formData, setFormData] = React.useState<{
@@ -180,7 +197,7 @@ export default function InstallmentsPage() {
     return true;
   });
 
-  const handleQuickPayNext = async (item: InstallmentWithDetails) => {
+  const handleQuickPayNext = (item: InstallmentWithDetails) => {
     // Find next unpaid payment
     const nextUnpaid = item.payments.find((p) => p.status !== "PAID");
     if (!nextUnpaid) {
@@ -188,17 +205,21 @@ export default function InstallmentsPage() {
       return;
     }
 
-    try {
-      const res = await markPaymentAsPaidAction(nextUnpaid.id);
-      if (res.success) {
-        toast.success(`ชำระงวดที่ #${nextUnpaid.installmentNumber} สำเร็จ`);
-        loadData();
-      } else {
-        toast.error(res.error || "เกิดข้อผิดพลาดในการชำระเงิน");
-      }
-    } catch {
-      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์");
-    }
+    const monthlyAmountNum = Number(item.installmentAmount);
+    const myShareMonthly =
+      item.ownershipType === "PERSONAL"
+        ? monthlyAmountNum
+        : Math.round(
+            monthlyAmountNum * (Number(item.userSharePercent) / 100) * 100
+          ) / 100;
+
+    setConfirmTarget({
+      paymentId: nextUnpaid.id,
+      installmentName: item.name,
+      installmentNumber: nextUnpaid.installmentNumber,
+      totalInstallments: item.totalInstallments,
+      amount: myShareMonthly,
+    });
   };
 
   return (
@@ -241,7 +262,7 @@ export default function InstallmentsPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            ส่วนตัว (Personal)
+            ส่วนตัว
           </button>
           <button
             onClick={() => setFilterTab("shared")}
@@ -251,7 +272,7 @@ export default function InstallmentsPage() {
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            ผ่อนร่วม (Shared)
+            ผ่อนร่วม
           </button>
         </div>
 
@@ -367,8 +388,8 @@ export default function InstallmentsPage() {
                           className="text-[11px]"
                         >
                           {item.ownershipType === "SHARED"
-                            ? `SHARED (${item.splitType === "EQUAL" ? "50/50" : `${Number(item.userSharePercent)}/${Number(item.partnerSharePercent)}`})`
-                            : "PERSONAL"}
+                            ? `ผ่อนร่วม (${item.splitType === "EQUAL" ? "50/50" : `${Number(item.userSharePercent)}/${Number(item.partnerSharePercent)}`})`
+                            : "ส่วนตัว"}
                         </Badge>
                         {item.status === "COMPLETED" && (
                           <Badge variant="paid" className="text-[10px]">
@@ -498,7 +519,12 @@ export default function InstallmentsPage() {
       {/* Modals & Dialogs */}
       <CreateInstallmentDialog
         open={createOpen}
-        onOpenChange={setCreateOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open && typeof window !== "undefined" && window.location.search.includes("new=true")) {
+            window.history.replaceState({}, "", "/installments");
+          }
+        }}
         dependencies={formData}
         onSuccess={loadData}
       />
@@ -538,6 +564,13 @@ export default function InstallmentsPage() {
             });
           }
         }}
+      />
+
+      <PaymentConfirmDialog
+        open={Boolean(confirmTarget)}
+        onOpenChange={(op) => !op && setConfirmTarget(null)}
+        target={confirmTarget}
+        onSuccess={loadData}
       />
     </div>
   );

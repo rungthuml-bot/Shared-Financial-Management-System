@@ -200,6 +200,23 @@ export class InstallmentService {
         }
       }
 
+      // 3. Create In-App Notification for partner if shared installment
+      if (input.ownershipType === "SHARED" && input.partnerId) {
+        const creator = await tx.user.findUnique({
+          where: { id: ownerId },
+          select: { name: true },
+        });
+        const creatorName = creator?.name || "ผู้ใช้งาน";
+        await tx.notification.create({
+          data: {
+            userId: input.partnerId,
+            type: "SYSTEM",
+            title: "มีรายการผ่อนร่วมใหม่",
+            message: `${creatorName} ได้เพิ่มรายการผ่อนร่วม "${installment.name}"`,
+          },
+        });
+      }
+
       // Return fully loaded installment
       const result = await tx.installment.findUnique({
         where: { id: installment.id },
@@ -408,6 +425,33 @@ export class InstallmentService {
         });
       }
 
+      // 3. Notify the other participant if shared installment and payment was not already PAID
+      if (
+        payment.status !== "PAID" &&
+        payment.installment.ownershipType === "SHARED"
+      ) {
+        const recipientId =
+          payment.installment.ownerId === userId
+            ? payment.installment.partnerId
+            : payment.installment.ownerId;
+
+        if (recipientId) {
+          const actor = await tx.user.findUnique({
+            where: { id: userId },
+            select: { name: true },
+          });
+          const actorName = actor?.name || "ผู้ใช้งาน";
+          await tx.notification.create({
+            data: {
+              userId: recipientId,
+              type: "SYSTEM",
+              title: "บันทึกจ่ายค่างวดแล้ว",
+              message: `${actorName} ได้บันทึกการชำระงวดที่ ${payment.installmentNumber} ของ "${payment.installment.name}" แล้ว`,
+            },
+          });
+        }
+      }
+
       return updatedPayment;
     });
   }
@@ -477,6 +521,33 @@ export class InstallmentService {
           where: { id: payment.installmentId },
           data: { status: "ACTIVE" },
         });
+      }
+
+      // Revert notification for other participant if shared installment was previously PAID
+      if (
+        payment.status === "PAID" &&
+        payment.installment.ownershipType === "SHARED"
+      ) {
+        const recipientId =
+          payment.installment.ownerId === userId
+            ? payment.installment.partnerId
+            : payment.installment.ownerId;
+
+        if (recipientId) {
+          const actor = await tx.user.findUnique({
+            where: { id: userId },
+            select: { name: true },
+          });
+          const actorName = actor?.name || "ผู้ใช้งาน";
+          await tx.notification.create({
+            data: {
+              userId: recipientId,
+              type: "SYSTEM",
+              title: "ยกเลิกสถานะชำระเงิน",
+              message: `${actorName} ได้ยกเลิกสถานะชำระเงินงวดที่ ${payment.installmentNumber} ของ "${payment.installment.name}"`,
+            },
+          });
+        }
       }
 
       return updated;

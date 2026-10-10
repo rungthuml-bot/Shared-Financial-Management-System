@@ -23,6 +23,7 @@ import { getReportDataAction } from "@/actions/report.actions";
 import { downloadReportCSV } from "@/lib/export-csv";
 import { ReportCharts } from "@/features/reports/report-charts";
 import { ProviderIcon } from "@/components/ui/provider-icon";
+import { getPaymentStatusLabel, formatSplitDisplayThai } from "@/lib/status-utils";
 import type {
   ReportData,
   ReportFilterInput,
@@ -281,8 +282,8 @@ export default function ReportsPage() {
             className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground"
           >
             <option value="ALL">ประเภททั้งหมด</option>
-            <option value="PERSONAL">ผ่อนส่วนตัว (Personal)</option>
-            <option value="SHARED">ผ่อนร่วมกัน (Shared)</option>
+            <option value="PERSONAL">ส่วนตัว</option>
+            <option value="SHARED">ผ่อนร่วม</option>
           </select>
 
           <select
@@ -291,10 +292,10 @@ export default function ReportsPage() {
             className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground"
           >
             <option value="ALL">สถานะทั้งหมด</option>
-            <option value="UPCOMING">รอชำระ (Upcoming)</option>
-            <option value="DUE">ครบกำหนด (Due)</option>
-            <option value="OVERDUE">เกินกำหนด (Overdue)</option>
-            <option value="PAID">ชำระแล้ว (Paid)</option>
+            <option value="UPCOMING">ยังไม่ถึงกำหนด</option>
+            <option value="DUE">ถึงกำหนดชำระ</option>
+            <option value="OVERDUE">เกินกำหนด</option>
+            <option value="PAID">ชำระแล้ว</option>
           </select>
 
           <select
@@ -610,7 +611,7 @@ export default function ReportsPage() {
                             }
                             className="text-[10px]"
                           >
-                            {r.status}
+                            {getPaymentStatusLabel(r.status)}
                           </Badge>
                         </td>
                         <td className="py-2.5 px-3 text-muted-foreground whitespace-nowrap">
@@ -621,7 +622,7 @@ export default function ReportsPage() {
                             variant={r.ownershipType === "SHARED" ? "shared" : "personal"}
                             className="text-[10px]"
                           >
-                            {r.splitDisplay}
+                            {formatSplitDisplayThai(r.splitDisplay, r.ownershipType)}
                           </Badge>
                         </td>
                       </tr>

@@ -78,6 +78,7 @@ export interface DashboardNetSettlement {
   direction: "you_owe" | "partner_owes" | "settled" | "none";
   currentUserName: string;
   partnerName: string;
+  partnerId?: string | null;
   amountIOweOthers: number;
   amountOthersOweMe: number;
   summaryText: string;
@@ -279,6 +280,7 @@ export class DashboardService {
     let amountOthersOweMe = new Prisma.Decimal(0);
     let amountIOweOthers = new Prisma.Decimal(0);
     let partnerName = "คู่ของคุณ";
+    let partnerId: string | null = null;
 
     // Compute from pending settlements table
     for (const stl of pendingSettlements) {
@@ -286,9 +288,11 @@ export class DashboardService {
       if (stl.toUserId === userId) {
         amountOthersOweMe = amountOthersOweMe.plus(stlAmount);
         partnerName = stl.fromUser.name;
+        partnerId = stl.fromUserId;
       } else if (stl.fromUserId === userId) {
         amountIOweOthers = amountIOweOthers.plus(stlAmount);
         partnerName = stl.toUser.name;
+        partnerId = stl.toUserId;
       }
     }
 
@@ -301,6 +305,7 @@ export class DashboardService {
 
       if (partner) {
         partnerName = partner.name;
+        partnerId = partner.id;
       }
 
       for (const split of payment.splits) {
@@ -313,6 +318,27 @@ export class DashboardService {
             // Partner covered user's split
             amountIOweOthers = amountIOweOthers.plus(splitAmount);
           }
+        }
+      }
+    }
+
+    // If partnerId is still unknown, look up from any existing shared installment
+    if (!partnerId) {
+      const sharedInst = await prisma.installment.findFirst({
+        where: {
+          ownershipType: "SHARED",
+          OR: [{ ownerId: userId }, { partnerId: userId }],
+        },
+        include: {
+          owner: { select: { id: true, name: true } },
+          partner: { select: { id: true, name: true } },
+        },
+      });
+      if (sharedInst) {
+        const partner = sharedInst.ownerId === userId ? sharedInst.partner : sharedInst.owner;
+        if (partner) {
+          partnerName = partner.name;
+          partnerId = partner.id;
         }
       }
     }
@@ -354,6 +380,7 @@ export class DashboardService {
       direction,
       currentUserName,
       partnerName,
+      partnerId,
       amountIOweOthers: iOweNum,
       amountOthersOweMe: othersOweNum,
       summaryText,

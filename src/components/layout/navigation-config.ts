@@ -5,6 +5,7 @@ import {
   Users2,
   BarChart3,
   Settings,
+  Menu,
   type LucideIcon,
 } from "lucide-react";
 
@@ -80,7 +81,7 @@ export const MOBILE_NAV_ITEMS: NavItem[] = [
   },
   {
     title: "เพิ่มเติม",
-    href: "/settings",
-    icon: Settings,
+    href: "#more",
+    icon: Menu,
   },
 ];
